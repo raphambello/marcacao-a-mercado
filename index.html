@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Marcação a Mercado">
+<meta name="theme-color" content="#0f1317">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Simulador de ganho por marcação a mercado ao vender um Tesouro IPCA+ antes do vencimento.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E">
+<title>Simulador de marcação a mercado — Tesouro IPCA+</title>
+<style>
+  :root{
+    --bg:#eef0f1;
+    --surface:#ffffff;
+    --surface-2:#e4e7e8;
+    --ink:#141b22;
+    --ink-muted:#566270;
+    --ink-faint:#8a94a0;
+    --line:#d7dcdf;
+    --line-soft:#e6e9ea;
+    --accent:#b4592a;
+    --accent-wash:rgba(180,89,42,0.10);
+    --gain:#0a8a73;
+    --gain-wash:rgba(10,138,115,0.12);
+    --loss:#b23b3b;
+    --loss-wash:rgba(178,59,59,0.12);
+    --font-display: ui-serif, Georgia, "Times New Roman", serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f1317;
+      --surface:#171d23;
+      --surface-2:#1f262d;
+      --ink:#eef1f3;
+      --ink-muted:#9aa7b3;
+      --ink-faint:#657280;
+      --line:#2a333c;
+      --line-soft:#212a31;
+      --accent:#c86b34;
+      --accent-wash:rgba(200,107,52,0.14);
+      --gain:#2fa890;
+      --gain-wash:rgba(47,168,144,0.16);
+      --loss:#d9584a;
+      --loss-wash:rgba(217,88,74,0.16);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1317; --surface:#171d23; --surface-2:#1f262d;
+    --ink:#eef1f3; --ink-muted:#9aa7b3; --ink-faint:#657280;
+    --line:#2a333c; --line-soft:#212a31;
+    --accent:#c86b34; --accent-wash:rgba(200,107,52,0.14);
+    --gain:#2fa890; --gain-wash:rgba(47,168,144,0.16);
+    --loss:#d9584a; --loss-wash:rgba(217,88,74,0.16);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ background:var(--bg); }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--font-body); -webkit-font-smoothing:antialiased; }
+  .page{ max-width:840px; margin:0 auto; padding:36px 20px 56px; }
+  .num{ font-variant-numeric:tabular-nums; }
+  a{ color:inherit; }
+
+  header.top{ margin-bottom:26px; }
+  .eyebrow{ font-family:var(--font-mono); font-size:11px; letter-spacing:0.11em; text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:10px; }
+  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(23px,4vw,30px); line-height:1.18; letter-spacing:-0.01em; margin:0 0 8px; text-wrap:balance; }
+  .sub{ font-size:14px; color:var(--ink-muted); line-height:1.55; max-width:60ch; }
+
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px 18px; margin-bottom:20px; }
+  .card h2{ font-size:14.5px; font-weight:600; margin:0 0 14px; }
+  .card .card-sub{ font-size:12px; color:var(--ink-muted); margin:-10px 0 16px; }
+
+  /* ---- inputs ---- */
+  .input-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px 20px; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:11.5px; color:var(--ink-muted); display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .field label .val{ font-family:var(--font-mono); font-size:13px; color:var(--ink); font-weight:600; }
+  .field input[type="number"]{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--ink);
+    font-family:var(--font-mono); font-size:15px; padding:9px 11px; border-radius:7px; width:100%;
+  }
+  .field input[type="number"]:focus{ outline:2px solid var(--accent); border-color:var(--accent); }
+  .field input[type="range"]{
+    width:100%; accent-color:var(--accent); height:4px;
+  }
+  .field .hint{ font-size:10.5px; color:var(--ink-faint); }
+  .scenario-field label .val{ color:var(--accent); }
+
+  /* ---- results ---- */
+  .stat-row{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:1px;
+    background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden;
+  }
+  .stat{ background:var(--surface); padding:14px 16px; }
+  .stat .k{ font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); margin-bottom:7px; }
+  .stat .v{ font-family:var(--font-mono); font-size:18px; font-weight:600; }
+  .stat .v.gain{ color:var(--gain); }
+  .stat .v.loss{ color:var(--loss); }
+  .stat .d{ font-size:10.5px; color:var(--ink-muted); margin-top:3px; }
+
+  /* ---- decomposition bar ---- */
+  .decomp{ margin-top:4px; }
+  .decomp-row{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .decomp-row .lbl{ width:168px; flex-shrink:0; font-size:12.5px; color:var(--ink-muted); }
+  .decomp-track{ flex:1; height:22px; background:var(--surface-2); border-radius:5px; position:relative; overflow:hidden; }
+  .decomp-fill{ position:absolute; top:0; bottom:0; border-radius:5px; }
+  .decomp-fill.pos{ background:var(--gain); }
+  .decomp-fill.neg{ background:var(--loss); }
+  .decomp-mid{ position:absolute; top:0; bottom:0; width:1px; background:var(--ink-faint); left:50%; opacity:0.5; }
+  .decomp-num{ width:84px; text-align:right; flex-shrink:0; font-family:var(--font-mono); font-size:13px; font-weight:600; }
+  .decomp-num.pos{ color:var(--gain); }
+  .decomp-num.neg{ color:var(--loss); }
+
+  /* ---- sensitivity chart ---- */
+  .chart-wrap{ position:relative; width:100%; }
+  svg.sens{ width:100%; height:auto; display:block; overflow:visible; }
+  .grid-line{ stroke:var(--line-soft); stroke-width:1; }
+  .zero-line{ stroke:var(--ink-faint); stroke-width:1.2; }
+  .bar{ cursor:default; }
+  .bar.gain{ fill:var(--gain); }
+  .bar.loss{ fill:var(--loss); }
+  .bar.current{ stroke:var(--ink); stroke-width:1.6; }
+  .bar-label{ font-family:var(--font-mono); font-size:9.5px; fill:var(--ink-muted); text-anchor:middle; }
+  .x-label{ font-family:var(--font-mono); font-size:9.5px; fill:var(--ink-faint); text-anchor:middle; }
+  .x-label.current{ fill:var(--ink); font-weight:700; }
+  .y-label{ font-family:var(--font-mono); font-size:9.5px; fill:var(--ink-faint); text-anchor:end; }
+
+  .legend{ display:flex; gap:16px; margin-top:12px; font-size:11px; color:var(--ink-muted); flex-wrap:wrap; }
+  .legend .item{ display:flex; align-items:center; gap:6px; }
+  .legend .sw{ width:10px; height:10px; border-radius:2px; }
+  .legend .sw.gain{ background:var(--gain); }
+  .legend .sw.loss{ background:var(--loss); }
+
+  .table-wrap{ overflow-x:auto; margin-top:16px; }
+  table.sens-table{ width:100%; border-collapse:collapse; font-size:12.5px; min-width:560px; }
+  table.sens-table th{ text-align:right; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint); font-weight:600; padding:0 8px 8px 0; border-bottom:1px solid var(--line); }
+  table.sens-table th:first-child, table.sens-table td:first-child{ text-align:left; }
+  table.sens-table td{ text-align:right; padding:7px 8px 7px 0; border-bottom:1px solid var(--line-soft); font-family:var(--font-mono); }
+  table.sens-table tr.current td{ background:var(--accent-wash); font-weight:700; }
+  td.gain{ color:var(--gain); } td.loss{ color:var(--loss); }
+
+  .note{ margin-top:20px; padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:0 8px 8px 0; font-size:12.5px; color:var(--ink-muted); line-height:1.65; }
+  .note b{ color:var(--ink); }
+  .note ul{ margin:8px 0 0; padding-left:18px; }
+  .note li{ margin-bottom:4px; }
+
+  footer{ margin-top:26px; font-size:11.5px; color:var(--ink-faint); line-height:1.7; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="top">
+    <div class="eyebrow">Renda fixa · simulador</div>
+    <h1>Marcação a mercado — Tesouro IPCA+</h1>
+    <p class="sub">Compare o ganho de carregar o título até vender antes do vencimento, sob diferentes cenários de mudança na taxa de mercado. Ajuste os campos abaixo — tudo recalcula na hora.</p>
+  </header>
+
+  <div class="card">
+    <h2>Seus parâmetros</h2>
+    <div class="input-grid">
+      <div class="field">
+        <label>Taxa contratada (IPCA+) <span class="val num" id="vTaxaCompra">8,11% a.a.</span></label>
+        <input type="number" id="taxaCompra" value="8.11" step="0.01" min="0" max="20">
+      </div>
+      <div class="field">
+        <label>Valor investido <span class="val num" id="vValor">R$ 10.000</span></label>
+        <input type="number" id="valorInvestido" value="10000" step="500" min="100">
+      </div>
+      <div class="field">
+        <label>Anos até o vencimento (na compra) <span class="val num" id="vAnos">9 anos</span></label>
+        <input type="range" id="anosVenc" min="1" max="30" step="1" value="9">
+      </div>
+      <div class="field">
+        <label>Tempo de carregamento até vender <span class="val num" id="vMeses">12 meses</span></label>
+        <input type="range" id="mesesCarrego" min="1" max="348" step="1" value="12">
+      </div>
+      <div class="field">
+        <label>IPCA projetado no período <span class="val num" id="vIpca">4,50% a.a.</span></label>
+        <input type="range" id="ipcaProjetado" min="0" max="10" step="0.1" value="4.5">
+      </div>
+      <div class="field scenario-field">
+        <label>Cenário: variação da taxa até a venda <span class="val num" id="vDelta">−1,00 p.p.</span></label>
+        <input type="range" id="deltaPP" min="-3" max="3" step="0.05" value="-1">
+        <span class="hint" id="hintTaxaVenda">nova taxa de mercado: IPCA+7,11% a.a.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Resultado do cenário</h2>
+    <div class="stat-row">
+      <div class="stat"><div class="k">PU na compra</div><div class="v num" id="oPuCompra">—</div></div>
+      <div class="stat"><div class="k">PU na venda (cenário)</div><div class="v num" id="oPuVenda">—</div></div>
+      <div class="stat"><div class="k">Valor na venda</div><div class="v num" id="oValorVenda">—</div></div>
+      <div class="stat"><div class="k">Ganho bruto</div><div class="v num" id="oGanhoBruto">—</div></div>
+      <div class="stat"><div class="k">Ganho % anualizado</div><div class="v num" id="oGanhoAnual">—</div></div>
+      <div class="stat"><div class="k">Ganho líquido de IR</div><div class="v num" id="oGanhoLiquido">—</div><div class="d" id="oIrAliquota">—</div></div>
+    </div>
+
+    <div class="decomp" style="margin-top:22px;">
+      <div class="decomp-row">
+        <div class="lbl">Carrego (juro real, taxa constante)</div>
+        <div class="decomp-track"><div class="decomp-mid"></div><div class="decomp-fill" id="barCarrego"></div></div>
+        <div class="decomp-num" id="numCarrego">—</div>
+      </div>
+      <div class="decomp-row">
+        <div class="lbl">Marcação a mercado (mudança de taxa)</div>
+        <div class="decomp-track"><div class="decomp-mid"></div><div class="decomp-fill" id="barMarcacao"></div></div>
+        <div class="decomp-num" id="numMarcacao">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Sensibilidade — ganho % anualizado por cenário de taxa</h2>
+    <div class="card-sub">Cada barra supõe a mesma taxa contratada e o mesmo prazo de carregamento acima, variando só a taxa de mercado na venda.</div>
+    <div class="chart-wrap">
+      <svg class="sens" id="sensSvg" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Gráfico de barras divergente mostrando o ganho percentual anualizado para diferentes cenários de variação de taxa"></svg>
+    </div>
+    <div class="legend">
+      <span class="item"><span class="sw gain"></span>ganho (taxa caiu / preço subiu)</span>
+      <span class="item"><span class="sw loss"></span>perda (taxa subiu / preço caiu)</span>
+    </div>
+    <div class="table-wrap">
+      <table class="sens-table" id="sensTable">
+        <thead><tr><th>Cenário</th><th>Nova taxa</th><th>PU venda</th><th>Ganho bruto</th><th>Ganho % anualiz.</th></tr></thead>
+        <tbody id="sensTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>O que este número significa.</b> "Marcação a mercado" é o efeito de vender o título antes do vencimento: se a taxa real de mercado para o mesmo prazo cair depois da sua compra, o preço do seu título sobe (ganho extra); se subir, o preço cai (perda), mesmo que você não tenha feito nada errado — é só o preço reagindo à nova taxa de desconto. Quem carrega até o vencimento nunca sofre esse efeito, só recebe a taxa contratada mais a correção do IPCA.
+    <ul>
+      <li>Cálculo simplificado: capitalização anual sobre o prazo em anos (em vez da convenção oficial de 252 dias úteis) e correção do VNA pela taxa de IPCA informada de forma constante ao longo do período (o IPCA real varia mês a mês).</li>
+      <li>IR usa a tabela regressiva de renda fixa (22,5% até 180 dias · 20% até 360 · 17,5% até 720 · 15% acima disso) aplicada só sobre o ganho, sem considerar IOF regressivo (relevante apenas se a venda ocorrer em menos de 30 dias).</li>
+      <li>Não inclui taxa de custódia B3 (0,20% a.a. sobre o saldo, com isenção até R$ 15.000 em Tesouro Selic) nem eventual taxa de corretagem.</li>
+    </ul>
+    Use como ferramenta de estudo do mecanismo, não como cotação — confirme o preço real no extrato do Tesouro Direto antes de decidir.
+  </div>
+
+  <footer>Simulador educacional, sem acesso a dados de mercado ao vivo — todos os números vêm dos parâmetros que você digitou acima.</footer>
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const fmtBRL = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const fmtPct = (v,d=2) => (v>=0?'+':'−') + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:d, maximumFractionDigits:d}) + '%';
+  const fmtPctPlain = (v,d=2) => v.toLocaleString('pt-BR', {minimumFractionDigits:d, maximumFractionDigits:d}) + '%';
+  const fmtPP = v => (v>=0?'+':'−') + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' p.p.';
+
+  const inputs = {
+    taxaCompra: $('taxaCompra'),
+    valorInvestido: $('valorInvestido'),
+    anosVenc: $('anosVenc'),
+    mesesCarrego: $('mesesCarrego'),
+    ipcaProjetado: $('ipcaProjetado'),
+    deltaPP: $('deltaPP'),
+  };
+
+  function calc(s){
+    const anosCarrego = s.mesesCarrego/12;
+    const anosVendaRestante = Math.max(s.anosVenc - anosCarrego, 0.01);
+    const taxaVenda = s.taxaCompra + s.deltaPP;
+
+    const vnaBase = 1000;
+    const puCompra = vnaBase / Math.pow(1 + s.taxaCompra/100, s.anosVenc);
+    const vnaVenda = vnaBase * Math.pow(1 + s.ipcaProjetado/100, anosCarrego);
+    const puVendaCenario = vnaVenda / Math.pow(1 + taxaVenda/100, anosVendaRestante);
+    const puVendaCarrego = vnaVenda / Math.pow(1 + s.taxaCompra/100, anosVendaRestante);
+
+    const qtd = s.valorInvestido / puCompra;
+    const valorVendaCenario = qtd * puVendaCenario;
+    const valorVendaCarrego = qtd * puVendaCarrego;
+
+    const ganhoBruto = valorVendaCenario - s.valorInvestido;
+    const ganhoPctTotal = (valorVendaCenario/s.valorInvestido - 1) * 100;
+    const ganhoPctAnual = (Math.pow(valorVendaCenario/s.valorInvestido, 1/anosCarrego) - 1) * 100;
+
+    const carregoGanho = valorVendaCarrego - s.valorInvestido;
+    const marcacaoGanho = valorVendaCenario - valorVendaCarrego;
+
+    const dias = s.mesesCarrego * 30;
+    const irRate = dias<=180 ? 22.5 : dias<=360 ? 20 : dias<=720 ? 17.5 : 15;
+    const irValor = ganhoBruto > 0 ? ganhoBruto * irRate/100 : 0;
+    const ganhoLiquido = ganhoBruto - irValor;
+
+    return { anosCarrego, anosVendaRestante, taxaVenda, puCompra, puVendaCenario, valorVendaCenario,
+      ganhoBruto, ganhoPctTotal, ganhoPctAnual, carregoGanho, marcacaoGanho, irRate, irValor, ganhoLiquido };
+  }
+
+  function readState(){
+    return {
+      taxaCompra: parseFloat(inputs.taxaCompra.value) || 0,
+      valorInvestido: parseFloat(inputs.valorInvestido.value) || 0,
+      anosVenc: parseFloat(inputs.anosVenc.value),
+      mesesCarrego: Math.min(parseFloat(inputs.mesesCarrego.value), parseFloat(inputs.anosVenc.value)*12 - 1),
+      ipcaProjetado: parseFloat(inputs.ipcaProjetado.value),
+      deltaPP: parseFloat(inputs.deltaPP.value),
+    };
+  }
+
+  function render(){
+    const s = readState();
+    inputs.mesesCarrego.max = Math.max(s.anosVenc*12 - 1, 1);
+    if(parseFloat(inputs.mesesCarrego.value) > inputs.mesesCarrego.max) inputs.mesesCarrego.value = inputs.mesesCarrego.max;
+
+    $('vTaxaCompra').textContent = fmtPctPlain(s.taxaCompra) + ' a.a.';
+    $('vValor').textContent = fmtBRL(s.valorInvestido);
+    $('vAnos').textContent = s.anosVenc + (s.anosVenc===1?' ano':' anos');
+    $('vMeses').textContent = s.mesesCarrego + ' meses';
+    $('vIpca').textContent = fmtPctPlain(s.ipcaProjetado) + ' a.a.';
+    $('vDelta').textContent = fmtPP(s.deltaPP);
+
+    const r = calc(s);
+    $('hintTaxaVenda').textContent = 'nova taxa de mercado: IPCA+' + fmtPctPlain(r.taxaVenda) + ' a.a.';
+
+    $('oPuCompra').textContent = fmtBRL(r.puCompra);
+    $('oPuVenda').textContent = fmtBRL(r.puVendaCenario);
+    $('oValorVenda').textContent = fmtBRL(r.valorVendaCenario);
+
+    const gB = $('oGanhoBruto');
+    gB.textContent = (r.ganhoBruto>=0?'+':'−') + fmtBRL(Math.abs(r.ganhoBruto)).replace('R$ ','R$ ');
+    gB.className = 'v num ' + (r.ganhoBruto>=0?'gain':'loss');
+
+    const gA = $('oGanhoAnual');
+    gA.textContent = fmtPct(r.ganhoPctAnual);
+    gA.className = 'v num ' + (r.ganhoPctAnual>=0?'gain':'loss');
+
+    const gL = $('oGanhoLiquido');
+    gL.textContent = (r.ganhoLiquido>=0?'+':'−') + fmtBRL(Math.abs(r.ganhoLiquido));
+    gL.className = 'v num ' + (r.ganhoLiquido>=0?'gain':'loss');
+    $('oIrAliquota').textContent = r.ganhoBruto>0 ? ('IR ' + r.irRate + '% sobre o ganho') : 'sem IR (sem ganho)';
+
+    // decomposition bars
+    const maxAbs = Math.max(Math.abs(r.carregoGanho), Math.abs(r.marcacaoGanho), s.valorInvestido*0.02);
+    function setBar(fillId, numId, val){
+      const fill = $(fillId), num = $(numId);
+      const pctOfTrack = Math.min(Math.abs(val)/maxAbs, 1) * 50;
+      fill.className = 'decomp-fill ' + (val>=0?'pos':'neg');
+      if(val>=0){ fill.style.left='50%'; fill.style.width=pctOfTrack+'%'; }
+      else { fill.style.left=(50-pctOfTrack)+'%'; fill.style.width=pctOfTrack+'%'; }
+      num.textContent = (val>=0?'+':'−') + fmtBRL(Math.abs(val));
+      num.className = 'decomp-num ' + (val>=0?'pos':'neg');
+    }
+    setBar('barCarrego','numCarrego', r.carregoGanho);
+    setBar('barMarcacao','numMarcacao', r.marcacaoGanho);
+
+    renderSensitivity(s, r);
+  }
+
+  function renderSensitivity(s, current){
+    const deltas = [];
+    for(let d=-3; d<=3.0001; d+=0.5) deltas.push(Math.round(d*100)/100);
+    const rows = deltas.map(d => ({ delta:d, r: calc({...s, deltaPP:d}) }));
+
+    // table
+    const tbody = $('sensTbody');
+    tbody.innerHTML = '';
+    const currentBucket = deltas.reduce((best,d)=> Math.abs(d-s.deltaPP) < Math.abs(best-s.deltaPP) ? d : best, deltas[0]);
+    rows.forEach(({delta,r})=>{
+      const tr = document.createElement('tr');
+      if(delta === currentBucket) tr.className = 'current';
+      const gClass = r.ganhoPctAnual>=0 ? 'gain':'loss';
+      tr.innerHTML = '<td>' + fmtPP(delta) + '</td>'
+        + '<td>IPCA+' + fmtPctPlain(r.taxaVenda) + '</td>'
+        + '<td>' + fmtBRL(r.puVendaCenario) + '</td>'
+        + '<td class="' + gClass + '">' + (r.ganhoBruto>=0?'+':'−') + fmtBRL(Math.abs(r.ganhoBruto)) + '</td>'
+        + '<td class="' + gClass + '">' + fmtPct(r.ganhoPctAnual) + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    // chart
+    const svg = $('sensSvg');
+    svg.innerHTML = '';
+    const NS = 'http://www.w3.org/2000/svg';
+    const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for(const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+
+    const W = 800, H = 300, padL = 46, padR = 10, padT = 16, padB = 34;
+    const chartW = W - padL - padR, chartH = H - padT - padB;
+    const values = rows.map(r=>r.r.ganhoPctAnual);
+    let maxV = Math.max(...values, 0), minV = Math.min(...values, 0);
+    const span = Math.max(maxV - minV, 1);
+    maxV += span*0.15; minV -= span*0.15;
+    const yFor = v => padT + (maxV - v)/(maxV-minV) * chartH;
+    const y0 = yFor(0);
+
+    // gridlines
+    [minV, minV + (maxV-minV)/2, maxV].forEach(v=>{
+      const y = yFor(v);
+      svg.appendChild(el('line', {class:'grid-line', x1:padL, y1:y.toFixed(1), x2:W-padR, y2:y.toFixed(1)}));
+      const t = el('text', {class:'y-label', x:padL-6, y:(y+3).toFixed(1)});
+      t.textContent = v.toFixed(1) + '%';
+      svg.appendChild(t);
+    });
+    svg.appendChild(el('line', {class:'zero-line', x1:padL, y1:y0.toFixed(1), x2:W-padR, y2:y0.toFixed(1)}));
+
+    const n = rows.length;
+    const bw = (chartW/n) * 0.62;
+    rows.forEach((row,i)=>{
+      const cx = padL + (i+0.5) * (chartW/n);
+      const y = yFor(row.r.ganhoPctAnual);
+      const top = Math.min(y, y0), h = Math.abs(y - y0);
+      const isCurrent = row.delta === currentBucket;
+      const bar = el('rect', {
+        class: 'bar ' + (row.r.ganhoPctAnual>=0?'gain':'loss') + (isCurrent?' current':''),
+        x:(cx-bw/2).toFixed(1), y:top.toFixed(1), width:bw.toFixed(1), height:Math.max(h,1).toFixed(1), rx:2
+      });
+      svg.appendChild(bar);
+      const lbl = el('text', {class:'x-label' + (isCurrent?' current':''), x:cx.toFixed(1), y:H-padB+16});
+      lbl.textContent = (row.delta>=0?'+':'−') + Math.abs(row.delta).toFixed(1);
+      svg.appendChild(lbl);
+    });
+  }
+
+  Object.values(inputs).forEach(inp => inp.addEventListener('input', render));
+  render();
+})();
+</script>
+</body>
+</html>
